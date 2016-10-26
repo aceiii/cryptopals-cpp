@@ -16,6 +16,9 @@ int main() {
     auto b2 = hex_to_bytes(xor_hex_str);
     auto b3 = b1 xor b2;
 
+    auto xored_str = bytes_to_hex(b3);
+
     std::cout << b3 << std::endl;
+    std::cout << xored_str << std::endl;
 }
 
