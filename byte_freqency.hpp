@@ -68,4 +68,30 @@ void sort_freq_vec_asc(byte_freq_vector& freq_vec) {
     std::sort(begin(freq_vec), end(freq_vec), byte_freq_cmp<std::less<byte_freq_pair::second_type>>());
 }
 
+struct char_or_hex_t {
+    byte b;
+};
+
+std::ostream& operator << (std::ostream& os, const char_or_hex_t& c) {
+    if (c.b == '\'') {
+        return (os << "\\'");
+    }
+    if (c.b >= 32 && c.b < 127) {
+        return (os << "'" << c.b << "'");
+    }
+    return (os << "0x" << std::hex << (int)c.b);
+}
+
+std::ostream& operator << (std::ostream& os, const byte_vector& v) {
+    os << "[";
+    auto it = begin(v);
+    if (it != end(v)) {
+        os << char_or_hex_t { *it };
+    }
+    for (it++; it != end(v); it++) {
+        os << ", " << char_or_hex_t { *it };
+    }
+    return (os << "]");
+}
+
 #endif//__BYTE_FREQUENCY_HPP__
