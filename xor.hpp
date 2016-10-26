@@ -16,4 +16,15 @@ byte_vector operator^ (const byte_vector& lhs, const byte_vector& rhs) {
     return b;
 }
 
+byte_vector operator^ (const byte_vector& lhs, const byte& x) {
+    const int size = lhs.size();
+    byte_vector b(size);
+
+    for (int i = 0; i < size; i += 1) {
+        b[i] = lhs[i] ^ x;
+    }
+
+    return b;
+}
+
 #endif//__XOR_HPP__
