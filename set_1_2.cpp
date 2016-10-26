@@ -5,7 +5,7 @@
 
 using namespace std::string_literals;
 
-#include "base64.h"
+#include "base64.hpp"
 #include "xor.hpp"
 
 int main() {

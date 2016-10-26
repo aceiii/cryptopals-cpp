@@ -1,35 +1,13 @@
-#ifndef __BASE64_H__
-#define __BASE64_H__
+#ifndef __BASE64_HPP__
+#define __BASE64_HPP__
 
 #include <iostream>
 #include <string>
 #include <vector>
 #include <sstream>
 
-#include "base64.h"
-
-
-typedef std::vector<unsigned char> byte_vector;
-
-
-byte_vector hex_to_bytes(const std::string& s) {
-    size_t len = s.size() / 2;
-    byte_vector b(len);
-
-    size_t pos = 0;
-    for (auto it = begin(s); it != end(s); it++) {
-        std::stringstream ss;
-        ss << *it++;
-        ss << *it;
-
-        unsigned int c;
-        ss >> std::hex >> c;
-
-        b[pos++] = c;
-    }
-
-    return b;
-}
+#include "byte_vector.hpp"
+#include "hex.hpp"
 
 std::string bytes_to_base64(const byte_vector& b) {
     static const char* codes = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
@@ -82,12 +60,11 @@ std::ostream& operator << (std::ostream& os, const print_byte_vector_t& bvt) {
     os << "b(";
 
     for (auto c: bvt.bytes) {
-        //os << std::hex << (int)c << ", ";
         os << c;
     }
 
     return (os << ")");
 }
 
-#endif//__BASE64_H__
+#endif//__BASE64_HPP__
 

@@ -2,7 +2,7 @@
 #define __XOR_HPP__
 
 #include <cassert>
-#include "base64.h"
+#include "base64.hpp"
 
 byte_vector operator^ (const byte_vector& lhs, const byte_vector& rhs) {
     assert(lhs.size() == rhs.size());
