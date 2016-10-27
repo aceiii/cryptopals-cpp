@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <iomanip>
 
 #include "byte_vector.hpp"
 
@@ -29,7 +30,7 @@ byte_vector hex_to_bytes(const std::string& s) {
 std::string bytes_to_hex(const byte_vector& b) {
     std::stringstream ss;
     for (int i = 0; i < b.size(); i += 1) {
-        ss << std::hex << (int)b[i];
+        ss << std::setw(2) << std::setfill('0') << std::hex << (int)b[i];
     }
 
     return ss.str();
