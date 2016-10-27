@@ -37,13 +37,6 @@ namespace {
     const byte_vector AsciiWhitelist = { '\0', '\r', '\n', '\t' };
 }
 
-struct is_ascii_predicate {
-    bool operator () (const byte& b) const {
-        return (b >= 1 && b <= 127) ||
-            find(begin(AsciiWhitelist), end(AsciiWhitelist), b) != end(AsciiWhitelist);
-    }
-};
-
 void test1() {
     auto str1 = "this is a test"s;
     auto str2 = "wokka wokka!!!"s;
