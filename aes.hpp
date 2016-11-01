@@ -5,8 +5,9 @@
 #include <vector>
 
 #include "byte_vector.hpp"
+#include "byte_freqency.hpp"
+#include "xor.hpp"
 
-template <typename Mode>
 class aes {
 	const byte sbox[256] = {
 		0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
@@ -70,51 +71,82 @@ class aes {
 	static constexpr int key_num_words = 4;
 	static constexpr int key_length = 16;
 
-	const Mode mode;
     const byte_vector key;
-    const byte_vector iv;
 
     typedef byte state_t[4][4];
     state_t* state;
     byte round_key[176];
 
 public:
-	aes(const byte_vector& key, const byte_vector& iv = byte_vector(key_length)):key(key),mode(),iv(key_length) {
+	aes(const byte_vector& key):key(key) {
         assert(key.size() == key_length);
-        assert(iv.size() == key_length);
     }
 
 public:
+    static constexpr size_t block_size = key_length;
+
     byte_vector encrypt(const byte_vector& input) {
-        assert(input.size() % key_length == 0);
+        assert(input.size() == key_length);
 
         key_expansion();
 
         byte output[key_length];
         std::copy(begin(input), end(input), std::begin(output));
-        state = reinterpret_cast<state_t*>(output);
 
-        cipher();
+        cipher(output);
 
-        byte_vector res;
-        std::copy(std::begin(output), std::end(output), std::back_inserter(res));
+        byte_vector res(key_length);
+        std::copy(std::begin(output), std::end(output), std::begin(res));
 
         return res;
     }
 
     byte_vector decrypt(const byte_vector& input) {
-        assert(input.size() % key_length == 0);
+        assert(input.size() == key_length);
 
         key_expansion();
 
         byte output[key_length];
         std::copy(begin(input), end(input), std::begin(output));
-        state = reinterpret_cast<state_t*>(output);
 
-        inv_cipher();
+        inv_cipher(output);
 
-        byte_vector res;
-        std::copy(std::begin(output), std::end(output), std::back_inserter(res));
+        byte_vector res(input.size());
+        std::copy(std::begin(output), std::end(output), begin(res));
+
+        return res;
+    }
+
+    inline void encrypt(const byte_vector& input, byte_vector& output) {
+        output = encrypt(input);
+    }
+
+    inline void decrypt(const byte_vector& input, byte_vector& output) {
+        output = decrypt(input);
+    }
+
+    template <typename Mode>
+    byte_vector encrypt_buffer(Mode mode, const byte_vector& input) {
+        assert(input.size() % key_length == 0);
+
+        key_expansion();
+
+        byte_vector res(input.size());
+
+        mode.encrypt_buffer(*this, begin(input), end(input), begin(res), end(res));
+
+        return res;
+    }
+
+    template <typename Mode>
+    byte_vector decrypt_buffer(Mode mode, const byte_vector& input) {
+        assert(input.size() % key_length == 0);
+
+        key_expansion();
+
+        byte_vector res(input.size());
+
+        mode.decrypt_buffer(*this, begin(input), end(input), begin(res), end(res));
 
         return res;
     }
@@ -299,7 +331,9 @@ private:
         (*state)[3][3] = temp;
     }
 
-    void cipher() {
+    void cipher(byte output[]) {
+        state = reinterpret_cast<state_t*>(output);
+
         add_round_key(0);
 
         for (byte round = 1; round < num_rounds; round += 1) {
@@ -314,7 +348,9 @@ private:
         add_round_key(num_rounds);
     }
 
-    void inv_cipher() {
+    void inv_cipher(byte output[]) {
+        state = reinterpret_cast<state_t*>(output);
+
         add_round_key(num_rounds);
 
         for (byte round = num_rounds - 1; round > 0; round -= 1) {
@@ -330,16 +366,143 @@ private:
     }
 };
 
+template <size_t BlockSize>
 struct ecb_mode {
+
+    template <typename Cipher, typename It, typename It2>
+    void encrypt_buffer(Cipher& cipher, It in_first, It in_last, It2 out_first, It2 out_last) const {
+
+        size_t input_size = std::distance(in_first, in_last);
+        size_t output_size = std::distance(out_first, out_last);
+
+        assert(input_size == output_size);
+        assert(output_size % BlockSize == 0);
+
+        while (in_first != in_last) {
+
+            byte_vector block_in(in_first, next(in_first, BlockSize));
+            byte_vector block_out(BlockSize);
+
+            cipher.encrypt(block_in, block_out);
+
+            std::copy(begin(block_out), end(block_out), out_first);
+
+            std::advance(in_first, BlockSize);
+            std::advance(out_first, BlockSize);
+        }
+    }
+
+    template <typename Cipher, typename It, typename It2>
+    void decrypt_buffer(Cipher& cipher, It in_first, It in_last, It2 out_first, It2 out_last) const {
+        size_t input_size = std::distance(in_first, in_last);
+        size_t output_size = std::distance(out_first, out_last);
+
+        assert(input_size == output_size);
+        assert(output_size % BlockSize == 0);
+
+        while (in_first != in_last) {
+
+            byte_vector block_in(BlockSize);
+            std::copy(in_first, next(in_first, BlockSize), begin(block_in));
+
+            byte_vector block_out(BlockSize);
+
+            cipher.decrypt(block_in, block_out);
+
+            std::copy(begin(block_out), end(block_out), out_first);
+
+            std::advance(in_first, BlockSize);
+            std::advance(out_first, BlockSize);
+        }
+    }
 };
 
+template <size_t BlockSize>
+struct cbc_mode {
+    const byte_vector iv;
+
+    cbc_mode(const byte_vector& iv_):iv(iv_) {}
+
+    template <typename Cipher, typename It, typename It2>
+    void encrypt_buffer(Cipher& cipher, It in_first, It in_last, It2 out_first, It2 out_last) const {
+        size_t input_size = std::distance(in_first, in_last);
+        size_t output_size = std::distance(out_first, out_last);
+
+        assert(input_size == output_size);
+        assert(output_size % BlockSize == 0);
+
+        byte_vector current_iv = iv;
+
+        while (in_first != in_last) {
+
+            byte_vector block_in(BlockSize);
+            std::copy(in_first, next(in_first, BlockSize), begin(block_in));
+
+            block_in = block_in ^ current_iv;
+
+            byte_vector block_out(BlockSize);
+
+            cipher.encrypt(block_in, block_out);
+            std::cout << block_out << std::endl;
+
+            std::copy(begin(block_out), end(block_out), out_first);
+
+            current_iv = block_out;
+            std::cout << "current_iv: " << current_iv << std::endl;
+
+            std::advance(in_first, BlockSize);
+            std::advance(out_first, BlockSize);
+        }
+    }
+
+    template <typename Cipher, typename It, typename It2>
+    void decrypt_buffer(Cipher& cipher, It in_first, It in_last, It2 out_first, It2 out_last) const {
+        size_t input_size = std::distance(in_first, in_last);
+        size_t output_size = std::distance(out_first, out_last);
+
+        assert(input_size == output_size);
+        assert(output_size % BlockSize == 0);
+
+        byte_vector current_iv = iv;
+
+        while (in_first != in_last) {
+
+            byte_vector block_in(BlockSize);
+            std::copy(in_first, next(in_first, BlockSize), begin(block_in));
+
+            byte_vector block_out(BlockSize);
+
+            cipher.decrypt(block_in, block_out);
+
+            block_out = block_out ^ current_iv;
+            current_iv = block_in;
+
+            std::copy(begin(block_out), end(block_out), out_first);
+
+            std::advance(in_first, BlockSize);
+            std::advance(out_first, BlockSize);
+        }
+    }
+};
+
+byte_vector zero_iv(size_t block_size = aes::block_size) {
+    return byte_vector(block_size, 0);
+}
+
 byte_vector aes_ecb_encrypt(const byte_vector& input, const byte_vector& key) {
-    return aes<ecb_mode>(key).encrypt(input);
+    return aes(key).encrypt_buffer(ecb_mode<aes::block_size>(), input);
 }
 
 byte_vector aes_ecb_decrypt(const byte_vector& input, const byte_vector& key) {
-    return aes<ecb_mode>(key).decrypt(input);
+    return aes(key).decrypt_buffer(ecb_mode<aes::block_size>(), input);
 }
 
+byte_vector aes_cbc_encrypt(const byte_vector& input, const byte_vector& key, const byte_vector& iv = zero_iv()) {
+    return aes(key).encrypt_buffer(cbc_mode<aes::block_size>(iv), input);
+}
+
+byte_vector aes_cbc_decrypt(const byte_vector& input, const byte_vector& key, const byte_vector& iv = zero_iv()) {
+    return aes(key).decrypt_buffer(cbc_mode<aes::block_size>(iv), input);
+}
 
 #endif//__AES_HPP__
