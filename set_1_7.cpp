@@ -47,11 +47,11 @@ void test2() {
     std::cout << bytes_to_base64(enc) << std::endl;
 
     auto dec = aes_ecb_decrypt(enc, key_bytes);
-    //auto str = bytes_to_str(dec);
+    auto str = bytes_to_str(dec);
 
-    /*std::cout << bytes_to_hex(dec) << std::endl;
+    std::cout << bytes_to_hex(dec) << std::endl;
     std::cout << bytes_to_base64(dec) << std::endl;
-    std::cout << str << std::endl;*/
+    std::cout << str << std::endl;
 }
 
 int main() {
@@ -80,16 +80,7 @@ int main() {
 
     assert(byte_lines.size() % block_size == 0);
 
-    byte_vector dec_lines;
-    for (int pos = 0; pos < byte_lines.size(); pos += block_size) {
-        byte_vector block(block_size, 0);
-        auto start = next(begin(byte_lines), pos);
-        auto stop = next(start, block_size);
-        std::copy(start, stop, begin(block));
-
-        byte_vector dec = aes_ecb_decrypt(block, key_bytes);
-        std::copy(begin(dec), end(dec), std::back_inserter(dec_lines));
-    }
+    byte_vector dec_lines = aes_ecb_decrypt(byte_lines, key_bytes);
 
     std::string dec_str = bytes_to_str(dec_lines);
     std::cout << dec_str << std::endl;
