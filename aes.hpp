@@ -443,12 +443,10 @@ struct cbc_mode {
             byte_vector block_out(BlockSize);
 
             cipher.encrypt(block_in, block_out);
-            std::cout << block_out << std::endl;
 
             std::copy(begin(block_out), end(block_out), out_first);
 
             current_iv = block_out;
-            std::cout << "current_iv: " << current_iv << std::endl;
 
             std::advance(in_first, BlockSize);
             std::advance(out_first, BlockSize);
