@@ -9,7 +9,27 @@
 #include "aes.hpp"
 #include "random_bytes.hpp"
 
-byte_vector encryption_oracle(const byte_vector& bytes) {
+enum class aes_mode {
+    ECB,
+    CBC,
+};
+
+std::ostream& operator << (std::ostream& os, const aes_mode& mode ) {
+    if (mode == aes_mode::ECB) {
+        return (os << "ECB");
+    }
+    return (os << "CBC");
+}
+
+struct oracle_data {
+    aes_mode mode;
+    byte_vector plaintext;
+    byte_vector prependtext;
+    byte_vector appendtext;
+    byte_vector ciphertext;
+};
+
+oracle_data encryption_oracle(const byte_vector& bytes) {
     random_int<int> rand_count(5, 10);
     random_bytes rand_bytes;
     random_int<int> rand_coin(0, 1);
@@ -30,17 +50,27 @@ byte_vector encryption_oracle(const byte_vector& bytes) {
     byte_vector rand_iv = rand_bytes.next_n(aes::block_size);
     byte_vector output;
 
+    aes_mode mode;
+
     if (rand_coin.next() == 0) {
+        mode = aes_mode::ECB;
         output = aes_ecb_encrypt(new_bytes, rand_key);
     } else {
+        mode = aes_mode::CBC;
         output = aes_cbc_encrypt(new_bytes, rand_key, rand_iv);
     }
 
-    return output;
+    return oracle_data { mode, bytes, rand_preprend, rand_append, output };
 }
 
-byte_vector encryption_oracle(const std::string& str) {
+oracle_data encryption_oracle(const std::string& str) {
     return encryption_oracle(str_to_bytes(str));
+}
+
+aes_mode detect_aes_mode(const byte_vector& bytes) {
+
+
+    return aes_mode::ECB;
 }
 
 void test1() {
@@ -65,8 +95,20 @@ void test1() {
 }
 
 int main() {
-    byte_vector enc = encryption_oracle("You're weakenin' fast, YO! and I can tell it!wtf");
-    std::cout << enc << std::endl;
+    constexpr int N = 100;
+
+    int matches = 0;
+    for (int i = 0; i < N; i += 1) {
+        oracle_data enc = encryption_oracle("You're weakenin' fast, YO! and I can tell it!wtf");
+        aes_mode mode = detect_aes_mode(enc.ciphertext);
+
+        if (mode == enc.mode) {
+            matches += 1;
+        }
+    }
+
+    assert(matches == N);
+    std::cout << "Success!" << std::endl;
 
     return 0;
 }
