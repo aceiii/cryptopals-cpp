@@ -53,9 +53,9 @@ std::ostream& operator << (std::ostream& os, const std::vector<T>& v) {
     auto it = begin(v);
     if (it != end(v)) {
         os << *it;
-    }
-    for (it++; it != end(v); it++) {
-        os << ", " << *it;
+        for (it++; it != end(v); it++) {
+            os << ", " << *it;
+        }
     }
     return (os << "]");
 }
@@ -87,9 +87,9 @@ std::ostream& operator << (std::ostream& os, const byte_vector& v) {
     auto it = begin(v);
     if (it != end(v)) {
         os << char_or_hex_t { *it };
-    }
-    for (it++; it != end(v); it++) {
-        os << ", " << char_or_hex_t { *it };
+        for (it++; it != end(v); it++) {
+            os << ", " << char_or_hex_t { *it };
+        }
     }
     return (os << "]");
 }
