@@ -89,6 +89,22 @@ size_t detect_block_size(std::function<byte_vector(const byte_vector&)> oracle_f
     }
 }
 
+size_t detect_oracle_secret_string_size(const int block_size, std::function<byte_vector(const byte_vector&)> oracle_func) {
+    int prev_size = oracle_func(str_to_bytes("A")).size();
+    int padding_size = 1;
+
+    for (padding_size = 2; padding_size <= block_size; padding_size += 1) {
+        byte_vector block(padding_size, 'A');
+        byte_vector enc = oracle_func(block);
+
+        if (enc.size() > prev_size) {
+            return prev_size - padding_size + 1;
+        }
+    }
+
+    return prev_size - padding_size + 1;
+}
+
 void test1() {
 
     auto s = "hello world!!12";
@@ -110,6 +126,9 @@ int main() {
 
     const aes_mode mode = detect_aes_mode(encryption_oracle);
     std::cout << "aes_mode: " << mode << std::endl;
+
+    const int unknown_size = detect_oracle_secret_string_size(block_size, encryption_oracle);
+    std::cout << "unknown_size: " << unknown_size << std::endl;
 
     byte_vector dec;
     for (int j = 0; j < block_size; j += 1) {
