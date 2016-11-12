@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 
 #include "byte_vector.hpp"
 #include "byte_freqency.hpp"
@@ -15,6 +16,10 @@ enum class aes_mode {
     ECB,
     CBC,
 };
+
+std::ostream& operator << (std::ostream& os, const aes_mode& mode) {
+    return os << (mode == aes_mode::ECB ? "ECB" : "CBC");
+}
 
 namespace {
     std::string unknown_string = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg"
@@ -100,7 +105,35 @@ void test2() {
 }
 
 int main() {
-    test2();
+    const int block_size = detect_block_size(encryption_oracle);
+    std::cout << "block_size: " << block_size << std::endl;
+
+    const aes_mode mode = detect_aes_mode(encryption_oracle);
+    std::cout << "aes_mode: " << mode << std::endl;
+
+    std::map<byte_vector, byte> block_map;
+    for (int i = 1; i < 256; i += 1) {
+        byte b = i;
+
+        byte_vector block(block_size - 1, 'A');
+        block.push_back(b);
+
+        byte_vector enc = encryption_oracle(block);
+
+        byte_vector enc_block(block_size);
+        std::copy(begin(enc), next(begin(enc), block_size), begin(enc_block));
+
+        block_map[enc_block] = b;
+    }
+
+    byte_vector block(block_size - 1, 'A');
+    byte_vector enc = encryption_oracle(block);
+
+    byte_vector enc_block(block_size);
+    std::copy(begin(enc), next(begin(enc), block_size), begin(enc_block));
+
+    byte b = block_map[enc_block];
+    std::cout << "First letter is: " << b << std::endl;
 
     return 0;
 }
