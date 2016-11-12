@@ -111,29 +111,38 @@ int main() {
     const aes_mode mode = detect_aes_mode(encryption_oracle);
     std::cout << "aes_mode: " << mode << std::endl;
 
-    std::map<byte_vector, byte> block_map;
-    for (int i = 1; i < 256; i += 1) {
-        byte b = i;
+    byte_vector dec;
+    for (int j = 0; j < block_size; j += 1) {
 
-        byte_vector block(block_size - 1, 'A');
-        block.push_back(b);
+        std::map<byte_vector, byte> block_map;
 
+        for (int i = 1; i < 256; i += 1) {
+            byte b = i;
+
+            byte_vector block(block_size - j - 1, 'A');
+            std::copy(begin(dec), end(dec), std::back_inserter(block));
+            block.push_back(b);
+
+            byte_vector enc = encryption_oracle(block);
+
+            byte_vector enc_block(block_size);
+            std::copy(begin(enc), next(begin(enc), block_size), begin(enc_block));
+
+            block_map[enc_block] = b;
+        }
+
+        byte_vector block(block_size - j - 1, 'A');
         byte_vector enc = encryption_oracle(block);
 
         byte_vector enc_block(block_size);
         std::copy(begin(enc), next(begin(enc), block_size), begin(enc_block));
 
-        block_map[enc_block] = b;
+        byte b = block_map[enc_block];
+
+        dec.push_back(b);
     }
 
-    byte_vector block(block_size - 1, 'A');
-    byte_vector enc = encryption_oracle(block);
-
-    byte_vector enc_block(block_size);
-    std::copy(begin(enc), next(begin(enc), block_size), begin(enc_block));
-
-    byte b = block_map[enc_block];
-    std::cout << "First letter is: " << b << std::endl;
+    std::cout << bytes_to_str(dec) << std::endl;
 
     return 0;
 }
