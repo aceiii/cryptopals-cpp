@@ -1,6 +1,8 @@
 #ifndef __RANDOM_INT_HPP__
 #define __RANDOM_INT_HPP__
 
+#include <random>
+
 template <typename T>
 class random_int
 {
