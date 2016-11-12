@@ -67,10 +67,29 @@ oracle_data encryption_oracle(const std::string& str) {
     return encryption_oracle(str_to_bytes(str));
 }
 
-aes_mode detect_aes_mode(const byte_vector& bytes) {
+std::pair<aes_mode, oracle_data> detect_aes_mode(std::function<oracle_data(const byte_vector&)> oracle_func) {
+    constexpr size_t block_size = aes::block_size;
 
+    constexpr size_t bufsize = 128;
+    byte_vector buffer(bufsize, '0');
+    std::map<byte_vector, int> count;
+    oracle_data enc = oracle_func(buffer);
 
-    return aes_mode::ECB;
+    const byte_vector& ciphertext = enc.ciphertext;
+    aes_mode mode = aes_mode::CBC;
+
+    for (int i = 0; i < ciphertext.size(); i += block_size) {
+        auto first = next(begin(ciphertext), i);
+        auto last = next(first, block_size);
+        byte_vector block(first, last);
+        count[block] += 1;
+    }
+
+    if (std::any_of(begin(count), end(count), [] (const auto& pair) { return pair.second > 1; })) {
+        mode = aes_mode::ECB;
+    }
+
+    return std::make_pair(mode, enc);
 }
 
 void test1() {
@@ -95,12 +114,17 @@ void test1() {
 }
 
 int main() {
+    using namespace std::placeholders;
+
     constexpr int N = 100;
 
     int matches = 0;
     for (int i = 0; i < N; i += 1) {
-        oracle_data enc = encryption_oracle("You're weakenin' fast, YO! and I can tell it!wtf");
-        aes_mode mode = detect_aes_mode(enc.ciphertext);
+        auto d = detect_aes_mode(std::bind<oracle_data(const byte_vector&)>(encryption_oracle, _1));
+        const aes_mode& mode = d.first;
+        const oracle_data& enc = d.second;
+
+        std::cout << mode << " == " << enc.mode << std::endl;
 
         if (mode == enc.mode) {
             matches += 1;
