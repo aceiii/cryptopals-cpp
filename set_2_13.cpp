@@ -6,8 +6,14 @@
 
 #include "byte_vector.hpp"
 #include "byte_freqency.hpp"
+#include "random_bytes.hpp"
+#include "aes.hpp"
 
 using namespace std::string_literals;
+
+namespace {
+    byte_vector random_key = random_bytes().next_n(aes::block_size);
+}
 
 std::vector<std::string> split(const std::string& line, const char& separator) {
     std::vector<std::string> result;
@@ -117,6 +123,29 @@ std::map<std::string, std::string> profile_for(const std::string& email) {
     };
 }
 
+byte_vector encryption_oracle(const std::string& email) {
+    constexpr size_t block_size = aes::block_size;
+
+    std::map<std::string, std::string> profile = profile_for(email);
+    std::string query_string = keyval_map_to_querystring(profile);
+
+    byte_vector bytes = str_to_bytes(query_string);
+    byte_vector buffer(((bytes.size() / block_size) + 1) * block_size, 0);
+    std::copy(begin(bytes), end(bytes), begin(buffer));
+
+    byte_vector out = aes_ecb_encrypt(buffer, random_key);
+    return out;
+}
+
+std::map<std::string, std::string> decryption_oracle(const byte_vector& ciphertext) {
+    constexpr size_t block_size = aes::block_size;
+
+    byte_vector plaintext = aes_ecb_decrypt(ciphertext, random_key);
+    std::string query_string = bytes_to_str(plaintext);
+
+    return parse_query_string(query_string);
+}
+
 void test1() {
     auto query_string = "foo=bar&baz=qux&zap=zazzle"s;
     auto out = parse_query_string(query_string);
@@ -152,9 +181,10 @@ void test3() {
 }
 
 int main() {
-    test1();
-    test2();
-    test3();
+    byte_vector enc = encryption_oracle("foo@bar.com");
+    std::map<std::string, std::string> profile = decryption_oracle(enc);
+    std::cout << profile << std::endl;
+
     return 0;
 }
 
