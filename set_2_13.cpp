@@ -51,6 +51,49 @@ std::map<std::string, std::string> parse_query_string(const std::string& qs) {
     return result;
 }
 
+std::string sanitize_query_string_key_val(const std::string& line) {
+    static const std::vector<char> chars_to_remove = {'&', '='};
+
+    std::stringstream ss;
+
+    auto first = begin(line);
+    auto last = first;
+    do {
+        last = find_first_of(first, end(line), begin(chars_to_remove), end(chars_to_remove));
+
+        std::string part(first, last);
+        ss << part;
+
+        first = next(last, 1);
+
+    } while (last != end(line));
+
+    return ss.str();
+}
+
+std::string keyval_map_to_querystring(const std::map<std::string, std::string>& m) {
+    constexpr char separator = '&';
+    constexpr char key_val_separator = '=';
+
+    std::stringstream ss;
+
+    bool first = true;
+    for (auto it = begin(m); it != end(m); it++) {
+        std::string key = sanitize_query_string_key_val(it->first);
+        std::string val = sanitize_query_string_key_val(it->second);
+
+        if (first) {
+            first = false;
+        } else {
+            ss << separator;
+        }
+
+        ss << key << key_val_separator << val;
+    }
+
+    return ss.str();
+}
+
 template <typename K, typename V>
 std::ostream& operator << (std::ostream& os, const std::map<K, V>& m) {
     os << "{ ";
@@ -64,6 +107,14 @@ std::ostream& operator << (std::ostream& os, const std::map<K, V>& m) {
     }
     os << " }";
     return os;
+}
+
+std::map<std::string, std::string> profile_for(const std::string& email) {
+    return {
+        {"email", sanitize_query_string_key_val(email)},
+        {"uid", "10"},
+        {"role", "user"},
+    };
 }
 
 void test1() {
@@ -82,8 +133,28 @@ void test1() {
     std::cout << "Success!" << std::endl;
 }
 
+void test2() {
+    std::string str = "my&string=with&forbidden=chars"s;
+    std::string res = "mystringwithforbiddenchars"s;
+
+    std::string santized = sanitize_query_string_key_val(str);
+
+    std::cout << str << " => " << santized << std::endl;
+
+    assert(santized == res);
+    std::cout << "Success!" << std::endl;
+}
+
+void test3() {
+    std::map<std::string, std::string> profile = profile_for("foo@bar.com&role=admin");
+    std::string qs = keyval_map_to_querystring(profile);
+    std::cout << qs << std::endl;
+}
+
 int main() {
     test1();
+    test2();
+    test3();
     return 0;
 }
 
