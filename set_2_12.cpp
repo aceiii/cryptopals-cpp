@@ -131,36 +131,39 @@ int main() {
     std::cout << "unknown_size: " << unknown_size << std::endl;
 
     byte_vector dec;
-    for (int j = 0; j < block_size; j += 1) {
+    for (int j = 0; j < unknown_size; j += 1) {
 
         std::map<byte_vector, byte> block_map;
+        int block_check_size = (std::floor(j / block_size) + 1) * block_size;
+        int filler_size = block_size - (dec.size() % block_size) - 1;
 
-        for (int i = 1; i < 256; i += 1) {
+        for (int i = 0; i < 256; i += 1) {
             byte b = i;
 
-            byte_vector block(block_size - j - 1, 'A');
+            byte_vector block(filler_size, 'A');
             std::copy(begin(dec), end(dec), std::back_inserter(block));
             block.push_back(b);
 
             byte_vector enc = encryption_oracle(block);
 
-            byte_vector enc_block(block_size);
-            std::copy(begin(enc), next(begin(enc), block_size), begin(enc_block));
+            byte_vector enc_block(block_check_size);
+            std::copy(begin(enc), next(begin(enc), block_check_size), begin(enc_block));
 
             block_map[enc_block] = b;
         }
 
-        byte_vector block(block_size - j - 1, 'A');
+        byte_vector block(filler_size, 'A');
         byte_vector enc = encryption_oracle(block);
 
-        byte_vector enc_block(block_size);
-        std::copy(begin(enc), next(begin(enc), block_size), begin(enc_block));
+        byte_vector enc_block(block_check_size);
+        std::copy(begin(enc), next(begin(enc), block_check_size), begin(enc_block));
 
         byte b = block_map[enc_block];
 
         dec.push_back(b);
     }
 
+    std::cout << std::endl << "Decrypted: " << std::endl;
     std::cout << bytes_to_str(dec) << std::endl;
 
     return 0;
