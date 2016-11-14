@@ -8,34 +8,6 @@
 
 using namespace std::string_literals;
 
-int get_pkcs7_padding(const byte_vector& bytes) {
-    if (bytes.size() == 0) {
-        return false;
-    }
-
-    const int size = bytes.size();
-    byte last_byte = bytes[size - 1];
-
-    bool is_valid = std::all_of(next(begin(bytes), size - last_byte), end(bytes),
-        [&] (const byte& b) { return b == last_byte; });
-
-    return is_valid ? last_byte : -1;
-}
-
-bool has_valid_pkcs7_padding(const byte_vector& bytes) {
-    return get_pkcs7_padding(bytes) != -1;
-}
-
-bool strip_pkcs7_padding(const byte_vector& in, byte_vector& out) {
-    int padding_size = get_pkcs7_padding(in);
-    if (padding_size == -1) {
-        return false;
-    }
-
-    out = byte_vector(begin(in), next(begin(in), in.size() - padding_size));
-    return true;
-}
-
 void test1() {
     auto s1 = "ICE ICE BABY\x04\x04\x04\x04"s;
     auto s2 = "ICE ICE BABY\x05\x05\x05\x05"s;
@@ -65,6 +37,7 @@ void test2() {
 }
 
 int main() {
+    test1();
     test2();
     return 0;
 }
