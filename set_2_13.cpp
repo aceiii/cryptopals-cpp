@@ -11,6 +11,8 @@
 
 using namespace std::string_literals;
 
+typedef std::map<std::string, std::string> key_val_list;
+
 namespace {
     byte_vector random_key = random_bytes().next_n(aes::block_size);
 }
@@ -33,11 +35,11 @@ std::vector<std::string> split(const std::string& line, const char& separator) {
     return result;
 }
 
-std::map<std::string, std::string> parse_query_string(const std::string& qs) {
+key_val_list parse_query_string(const std::string& qs) {
     const char separator = '&';
     const char key_val_separator = '=';
 
-    std::map<std::string, std::string> result;
+    key_val_list result;
 
     std::vector<std::string> parts = split(qs, separator);
     std::for_each(begin(parts), end(parts), [&] (const std::string& part) {
@@ -51,6 +53,7 @@ std::map<std::string, std::string> parse_query_string(const std::string& qs) {
             val = keyval[1];
         }
 
+        //result.push_back(std::make_pair(key, val));
         result[key] = val;
     });
 
@@ -77,7 +80,7 @@ std::string sanitize_query_string_key_val(const std::string& line) {
     return ss.str();
 }
 
-std::string keyval_map_to_querystring(const std::map<std::string, std::string>& m) {
+std::string key_val_list_to_querystring(const key_val_list& m) {
     constexpr char separator = '&';
     constexpr char key_val_separator = '=';
 
@@ -115,7 +118,7 @@ std::ostream& operator << (std::ostream& os, const std::map<K, V>& m) {
     return os;
 }
 
-std::map<std::string, std::string> profile_for(const std::string& email) {
+key_val_list profile_for(const std::string& email) {
     return {
         {"email", sanitize_query_string_key_val(email)},
         {"uid", "10"},
@@ -123,21 +126,46 @@ std::map<std::string, std::string> profile_for(const std::string& email) {
     };
 }
 
+template <typename T>
+std::vector<T> split_blocks(const T& buf, const size_t& block_size) {
+    const int num_blocks = buf.size() / block_size;
+    const int remainder = buf.size() % block_size;
+
+    std::vector<T> blocks;
+    for (int i = 0; i < num_blocks; i += 1) {
+        auto start = next(begin(buf), i * block_size);
+        auto stop = next(start, block_size);
+        T block(start, stop);
+        blocks.push_back(block);
+    }
+    if (remainder > 0) {
+        auto start = next(begin(buf), num_blocks * block_size);
+        auto stop = end(buf);
+        T block(start, stop);
+        blocks.push_back(block);
+    }
+
+    return blocks;
+}
+
 byte_vector encryption_oracle(const std::string& email) {
     constexpr size_t block_size = aes::block_size;
 
-    std::map<std::string, std::string> profile = profile_for(email);
-    std::string query_string = keyval_map_to_querystring(profile);
+    key_val_list profile = profile_for(email);
+    std::string query_string = key_val_list_to_querystring(profile);
+
+    auto split_qs = split_blocks(query_string, block_size);
 
     byte_vector bytes = str_to_bytes(query_string);
     byte_vector buffer(((bytes.size() / block_size) + 1) * block_size, 0);
     std::copy(begin(bytes), end(bytes), begin(buffer));
 
     byte_vector out = aes_ecb_encrypt(buffer, random_key);
+
     return out;
 }
 
-std::map<std::string, std::string> decryption_oracle(const byte_vector& ciphertext) {
+key_val_list decryption_oracle(const byte_vector& ciphertext) {
     constexpr size_t block_size = aes::block_size;
 
     byte_vector plaintext = aes_ecb_decrypt(ciphertext, random_key);
@@ -149,7 +177,7 @@ std::map<std::string, std::string> decryption_oracle(const byte_vector& cipherte
 void test1() {
     auto query_string = "foo=bar&baz=qux&zap=zazzle"s;
     auto out = parse_query_string(query_string);
-    std::map<std::string, std::string> res = {
+    key_val_list res = {
         {"foo", "bar"},
         {"baz", "qux"},
         {"zap", "zazzle"},
@@ -175,15 +203,35 @@ void test2() {
 }
 
 void test3() {
-    std::map<std::string, std::string> profile = profile_for("foo@bar.com&role=admin");
-    std::string qs = keyval_map_to_querystring(profile);
+    key_val_list profile = profile_for("foo@bar.com&role=admin");
+    std::string qs = key_val_list_to_querystring(profile);
     std::cout << qs << std::endl;
 }
 
 int main() {
-    byte_vector enc = encryption_oracle("foo@bar.com");
-    std::map<std::string, std::string> profile = decryption_oracle(enc);
-    std::cout << profile << std::endl;
+    constexpr size_t block_size = aes::block_size;
+
+    byte_vector enc1 = encryption_oracle("aceiii\0\0\0\0"s);
+    byte_vector enc2 = encryption_oracle("0123456789\0\0\0\0\0\0\0\0\0\0"s);
+    byte_vector enc3 = encryption_oracle("0123456789admin\0\0\0\0\0\0\0\0\0\0\0"s);
+    byte_vector enc4 = encryption_oracle("0123456789012345"s);
+
+    std::vector<byte_vector> enc1_blocks = split_blocks(enc1, block_size);
+    std::vector<byte_vector> enc2_blocks = split_blocks(enc2, block_size);
+    std::vector<byte_vector> enc3_blocks = split_blocks(enc3, block_size);
+    std::vector<byte_vector> enc4_blocks = split_blocks(enc4, block_size);
+
+    byte_vector new_bytes;
+
+    std::copy(begin(enc1_blocks[0]), end(enc1_blocks[0]), std::back_inserter(new_bytes));
+    std::copy(begin(enc2_blocks[1]), end(enc2_blocks[1]), std::back_inserter(new_bytes));
+    std::copy(begin(enc3_blocks[1]), end(enc3_blocks[1]), std::back_inserter(new_bytes));
+    std::copy(begin(enc4_blocks[2]), end(enc4_blocks[2]), std::back_inserter(new_bytes));
+
+    std::cout << "ciphertext: " << bytes_to_hex(new_bytes) << std::endl;
+
+    auto profile = decryption_oracle(new_bytes);
+    std::cout << "profile: " << profile << std::endl;
 
     return 0;
 }
