@@ -7,6 +7,7 @@
 #include "random_int.hpp"
 #include "random_bytes.hpp"
 #include "aes.hpp"
+#include "blocks.hpp"
 
 using namespace std::string_literals;
 
@@ -72,28 +73,6 @@ aes_mode detect_aes_mode(std::function<byte_vector(const byte_vector&)> oracle_f
     }
 
     return mode;
-}
-
-template <typename T>
-std::vector<T> split_blocks(const T& buf, const size_t& block_size) {
-    const int num_blocks = buf.size() / block_size;
-    const int remainder = buf.size() % block_size;
-
-    std::vector<T> blocks;
-    for (int i = 0; i < num_blocks; i += 1) {
-        auto start = next(begin(buf), i * block_size);
-        auto stop = next(start, block_size);
-        T block(start, stop);
-        blocks.push_back(block);
-    }
-    if (remainder > 0) {
-        auto start = next(begin(buf), num_blocks * block_size);
-        auto stop = end(buf);
-        T block(start, stop);
-        blocks.push_back(block);
-    }
-
-    return blocks;
 }
 
 size_t detect_block_size(std::function<byte_vector(const byte_vector&)> oracle_func) {
