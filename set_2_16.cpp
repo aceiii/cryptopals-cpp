@@ -10,6 +10,7 @@
 #include "random_bytes.hpp"
 #include "hex.hpp"
 #include "string.hpp"
+#include "blocks.hpp"
 
 using namespace std::string_literals;
 
@@ -55,14 +56,9 @@ byte_vector encryption_oracle(const std::string& str) {
     return enc;
 }
 
-byte_vector decryption_oracle(const byte_vector& ciphertext) {
+bool decryption_oracle(const byte_vector& ciphertext, byte_vector& out) {
     byte_vector dec = aes_cbc_decrypt(ciphertext, random_key, random_iv);
-
-    byte_vector plaintext;
-    if (strip_pkcs7_padding(dec, plaintext)) {
-        return plaintext;
-    }
-    return dec;
+    return strip_pkcs7_padding(dec, out);
 }
 
 bool is_admin(const std::string& cookie_str) {
@@ -127,10 +123,53 @@ void test4() {
 }
 
 int main() {
-    test1();
-    test2();
-    test3();
-    test4();
+    constexpr size_t block_size = aes::block_size;
+
+    std::string a = bytes_to_str(byte_vector(block_size * 2, 'a'));
+    std::string b = bytes_to_str(byte_vector(block_size *2, 'b'));
+
+    byte_vector ea = encryption_oracle(a);
+    byte_vector eb = encryption_oracle(b);
+
+    int start_block = 0;
+    for (int i = 0; i < (ea.size() / block_size); i += 1) {
+        start_block = i;
+
+        byte_vector ba(next(begin(ea), i * block_size), next(begin(ea), (i+1) * block_size));
+        byte_vector bb(next(begin(eb), i * block_size), next(begin(eb), (i+1) * block_size));
+
+        if (ba != bb) {
+            break;
+        }
+    }
+
+    std::string padding = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"s;
+    std::string target = "\0\0\0\0;admin=true;"s;
+
+    byte_vector enc = encryption_oracle(padding + padding);
+    std::vector<byte_vector> blocks = split_blocks(enc, block_size);
+
+    std::vector<byte_vector> blocks2;
+    for (int i = 0; i < start_block; i += 1) {
+        blocks2.push_back(blocks[i]);
+    }
+
+    byte_vector custom_block = blocks[start_block] xor str_to_bytes(target);
+    blocks2.push_back(custom_block);
+
+    for (int i = start_block + 1; i < blocks.size(); i += 1) {
+        blocks2.push_back(blocks[i]);
+    }
+
+    byte_vector modified_ciphertext = combine_blocks(blocks2);
+    byte_vector result;
+
+    if (decryption_oracle(modified_ciphertext, result)) {
+        std::cout << "is_admin: " << std::boolalpha << is_admin(bytes_to_str(result)) << std::endl;
+    } else {
+        std::cout << "decrypt error" << std::endl;
+    }
+
     return 0;
 }
 
