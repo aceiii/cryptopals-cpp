@@ -38,11 +38,11 @@ int get_pkcs7_padding(const byte_vector& bytes) {
     bool is_valid = std::all_of(next(begin(bytes), size - last_byte), end(bytes),
         [&] (const byte& b) { return b == last_byte; });
 
-    return is_valid ? last_byte : -1;
+    return is_valid ? last_byte : 0;
 }
 
 bool has_valid_pkcs7_padding(const byte_vector& bytes) {
-    return get_pkcs7_padding(bytes) != -1;
+    return get_pkcs7_padding(bytes) > 0;
 }
 
 bool strip_pkcs7_padding(const byte_vector& in, byte_vector& out) {
