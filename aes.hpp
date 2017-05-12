@@ -140,7 +140,7 @@ public:
 
     template <typename Mode>
     byte_vector decrypt_buffer(Mode mode, const byte_vector& input) {
-        assert(input.size() % key_length == 0);
+        //assert(input.size() % key_length == 0);
 
         key_expansion();
 
