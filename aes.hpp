@@ -483,6 +483,55 @@ struct cbc_mode {
     }
 };
 
+template <size_t BlockSize>
+struct ctr_mode {
+
+    const uint64_t nonce;
+
+    ctr_mode(const uint64_t nonce_):nonce(nonce_) {}
+
+    template <typename Cipher, typename In_it, typename Out_it>
+    void encrypt_buffer(Cipher &cipher, In_it in_first, In_it in_last, Out_it out_first, Out_it out_last) const {
+
+        size_t input_size = std::distance(in_first, in_last);
+        size_t output_size = std::distance(out_first, out_last);
+
+        assert(input_size == output_size);
+
+        size_t num_blocks = output_size / BlockSize;
+
+        uint64_t counter = 0;
+
+        for (int i = 0; i <= num_blocks; i += 1) {
+            byte_vector block_in(BlockSize);
+            std::memcpy(block_in.data(), &nonce, sizeof(nonce));
+            std::memcpy(block_in.data() + sizeof(nonce), &counter, sizeof(counter));
+
+            byte_vector block_out(BlockSize);
+
+            cipher.encrypt(block_in, block_out);
+
+            for (int j = 0; j < BlockSize; j += 1) {
+                if (out_first + j == out_last) {
+                    break;
+                }
+
+                *(out_first + j) = *(in_first + j) ^ block_out[j];
+            }
+
+            std::advance(in_first, BlockSize);
+            std::advance(out_first, BlockSize);
+
+            counter += 1;
+        }
+    }
+
+    template <typename Cipher, typename In_it, typename Out_it>
+    void decrypt_buffer(Cipher &cipher, In_it in_first, In_it in_last, Out_it out_first, Out_it out_last) const {
+        encrypt_buffer(cipher, in_first, in_last, out_first, out_last);
+    }
+};
+
 byte_vector zero_iv(size_t block_size = aes::block_size) {
     return byte_vector(block_size, 0);
 }
@@ -501,6 +550,14 @@ byte_vector aes_cbc_encrypt(const byte_vector& input, const byte_vector& key, co
 
 byte_vector aes_cbc_decrypt(const byte_vector& input, const byte_vector& key, const byte_vector& iv = zero_iv()) {
     return aes(key).decrypt_buffer(cbc_mode<aes::block_size>(iv), input);
+}
+
+byte_vector aes_ctr_encrypt(const byte_vector& input, const byte_vector& key, uint64_t nonce = 0) {
+    return aes(key).encrypt_buffer(ctr_mode<aes::block_size>(nonce), input);
+}
+
+byte_vector aes_ctr_decrypt(const byte_vector& input, const byte_vector& key, uint64_t nonce = 0) {
+    return aes(key).decrypt_buffer(ctr_mode<aes::block_size>(nonce), input);
 }
 
 #endif//__AES_HPP__
