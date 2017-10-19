@@ -6,6 +6,7 @@
 #include <cmath>
 #include <bitset>
 
+#include "file.hpp"
 #include "byte_vector.hpp"
 #include "byte_freqency.hpp"
 #include "base64.hpp"
@@ -43,13 +44,18 @@ void test1() {
 
 
 int main() {
-    byte_vector lines;
-    auto filename = "6.txt"s;
-    std::ifstream file(filename);
-    while (!file.fail()) {
-        std::string line;
-        file >> line;
+    std::vector<std::string> corpus = read_lines_from_file("miss_jemima.txt");
+    byte_vector corpus_bytes;
+    for (const auto &line : corpus) {
+        auto byte_line = str_to_bytes(line);
+        std::copy(byte_line.begin(), byte_line.end(), std::back_inserter(corpus_bytes));
+    }
+    auto corpus_freq_map = map_byte_frequency(corpus_bytes);
+    auto corpus_freq_list = freq_map_to_list(corpus_freq_map);
 
+    byte_vector lines;
+    auto str_lines = read_lines_from_file("6.txt");
+    for (const auto &line : str_lines) {
         auto b64_line = base64_to_bytes(line);
         copy(begin(b64_line), end(b64_line), std::back_inserter(lines));
     }
@@ -95,15 +101,23 @@ int main() {
     std::vector<byte_vector> decoded_blocks(actual_keysize);
 
     for (int i = 0; i < actual_keysize; i += 1) {
-        const byte_vector& block = blocks[i];
+        double selected_decoded_score = std::numeric_limits<double>::infinity();
+        byte_vector selected_decoded_block;
+        const auto &block = blocks[i];
 
-        auto freq = map_byte_frequency(block);
-        auto freq_vec = map_to_vector(freq);
+        for (int k = 0; k < 256; k += 1) {
+            auto decoded = block ^ k;
+            auto decoded_freq_map = map_byte_frequency(decoded);
+            auto decoded_freq_list = freq_map_to_list(decoded_freq_map);
+            double score = compare_freq_list(corpus_freq_list, decoded_freq_list);
 
-        sort_freq_vec_desc(freq_vec);
+            if (score < selected_decoded_score) {
+                selected_decoded_score = score;
+                selected_decoded_block = decoded;
+            }
+        }
 
-        decoded_blocks[i] = block ^ freq_vec[0].first;
-        key[i] = freq_vec[0].first;
+        decoded_blocks[i] = selected_decoded_block;
     }
 
     byte_vector decoded_lines(lines.size());
@@ -111,13 +125,8 @@ int main() {
         decoded_lines[i] = decoded_blocks[i % actual_keysize][i / actual_keysize];
     }
 
-    /* hmm lots of \0 and \x0c in the final output */
-    std::replace(begin(decoded_lines), end(decoded_lines), '\0', ' ');
-    std::replace(begin(decoded_lines), end(decoded_lines), '\x0c', '\n');
-
     std::cout << "Key: " << bytes_to_str(key) << std::endl;
     std::cout << bytes_to_str(decoded_lines) << std::endl;
-    //std::cout << decoded_lines << std::endl;
 
     return 0;
 }

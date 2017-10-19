@@ -1,3 +1,6 @@
+#ifndef __FILE_HPP__
+#define __FILE_HPP__
+
 #include <vector>
 #include <fstream>
 
@@ -20,3 +23,4 @@ std::vector<std::string> read_lines_from_file(const std::string &filename) {
     return lines;
 }
 
+#endif//__FILE_HPP__
