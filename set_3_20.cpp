@@ -21,27 +21,16 @@ namespace {
 }
 
 auto main() -> int {
-    std::vector<std::string> corpus = read_lines_from_file("miss_jemima.txt");
-    size_t corpus_total_chars = 0;
-    std::map<byte, size_t> corpus_char_counts;
-    std::map<byte, double> corpus_char_frequency;
+    auto corpus = read_lines_from_file("miss_jemima.txt");
+    byte_vector corpus_bytes;
     for (const auto &line : corpus) {
-        for (const auto &c : line) {
-            corpus_total_chars += 1;
-            corpus_char_counts[c] += 1;
-            corpus_char_frequency[c] = double(corpus_char_counts[c]) / double(corpus_total_chars);
-        }
+        auto byte_line = str_to_bytes(line);
+        std::copy(byte_line.begin(), byte_line.end(), std::back_inserter(corpus_bytes));
     }
-
-    std::vector<std::pair<byte, double>> corpus_frequency_list;
-    std::copy(corpus_char_frequency.begin(), corpus_char_frequency.end(), std::back_inserter(corpus_frequency_list));
-
-    std::sort(corpus_frequency_list.begin(), corpus_frequency_list.end(), [] (const auto &p1, const auto &p2) {
-        return p1.second > p2.second;
-    });
+    auto corpus_freq_map = map_byte_frequency(corpus_bytes);
+    auto corpus_freq_list = freq_map_to_list(corpus_freq_map);
 
     std::vector<std::string> lines = read_lines_from_file("20.txt");
-
     std::vector<byte_vector> ciphertexts;
 
     int min_length = std::numeric_limits<int>::max();
@@ -64,9 +53,25 @@ for (const auto &line : lines) {
     std::vector<byte_vector> decoded_blocks(keysize);
 
     for (int i = 0; i < blocks.size(); i += 1) {
-        const byte_vector &block = blocks[i];
+        double selected_decoded_score = std::numeric_limits<double>::infinity();
+        byte_vector selected_decoded_block;
+        const auto &block = blocks[i];
 
-        auto freq = map_byte_frequency(block);
+        for (int k = 0; k < 256; k += 1) {
+            auto decoded = block ^ k;
+            auto freq = map_byte_frequency(decoded);
+            auto freq_list = freq_map_to_list(freq);
+            double score = compare_freq_list(corpus_freq_list, freq_list);
+
+            if (score < selected_decoded_score) {
+                selected_decoded_score = score;
+                selected_decoded_block = decoded;
+            }
+        }
+
+        decoded_blocks[i] = selected_decoded_block;
+
+        /*
         std::vector<std::pair<byte, double>> freq_list;
         for (const auto &p : freq) {
             freq_list.push_back(std::make_pair(p.first, double(p.second) / double(block.size())));
@@ -79,8 +84,8 @@ for (const auto &line : lines) {
         bool stop = false;
         int k = 0;
         do {
-            decoded_blocks[i] = block ^ freq_list[0].first ^ corpus_frequency_list[k].first;
-            if (k >= corpus_frequency_list.size() || std::all_of(decoded_blocks[i].begin(), decoded_blocks[i].end(),
+            decoded_blocks[i] = block ^ freq_list[0].first ^ corpus_freq_list[k].first;
+            if (k >= corpus_freq_list.size() || std::all_of(decoded_blocks[i].begin(), decoded_blocks[i].end(),
                 [] (const auto &b) {
                     return std::isdigit(b) || std::isalpha(b) || b == ' ' || b == '.' || b == '-' || b == '?' || b == ';' || b == '(' || b == ')';
                 }))
@@ -89,6 +94,7 @@ for (const auto &line : lines) {
             }
             k += 1;
         } while (!stop);
+        */
     }
 
     auto final_blocks = transpose_blocks(decoded_blocks, block_length);
