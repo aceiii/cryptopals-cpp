@@ -29,7 +29,7 @@ T padded_pkcs7(const T& obj, size_t padded_size) {
 
 int get_pkcs7_padding(const byte_vector& bytes) {
     if (bytes.size() == 0) {
-        return false;
+        return 0;
     }
 
     const int size = bytes.size();
@@ -47,7 +47,7 @@ bool has_valid_pkcs7_padding(const byte_vector& bytes) {
 
 bool strip_pkcs7_padding(const byte_vector& in, byte_vector& out) {
     int padding_size = get_pkcs7_padding(in);
-    if (padding_size == -1) {
+    if (padding_size < 1) {
         return false;
     }
 
