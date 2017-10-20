@@ -6,6 +6,7 @@
 #include <sstream>
 #include <iomanip>
 
+#include "byte.hpp"
 #include "byte_vector.hpp"
 
 byte_vector hex_to_bytes(const std::string& s) {

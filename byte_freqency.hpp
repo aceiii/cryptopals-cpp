@@ -13,6 +13,7 @@
 #include "hex.hpp"
 #include "xor.hpp"
 #include "base64.hpp"
+#include "file.hpp"
 
 typedef std::map<byte, double> byte_freq_map;
 typedef std::pair<byte, double> byte_freq_pair;
@@ -28,6 +29,18 @@ byte_freq_map map_byte_frequency(const byte_vector& bytes) {
     }
 
     return m;
+}
+
+byte_freq_map map_byte_frequency_from_file(const std::string &filename) {
+    std::vector<std::string> lines = read_lines_from_file(filename);
+    byte_vector bytes;
+
+    for (const auto &line : lines) {
+        byte_vector line_bytes = str_to_bytes(line);
+        std::copy(line_bytes.begin(), line_bytes.end(), std::back_inserter(bytes));
+    }
+
+    return map_byte_frequency(bytes);
 }
 
 byte_freq_vector map_to_vector(const byte_freq_map& m) {
@@ -107,23 +120,6 @@ struct byte_freq_cmp {
         return op(lhs.second, rhs.second);
     }
 };
-
-std::ostream& operator << (std::ostream& os, const byte_freq_pair& pair) {
-    return (os << "{" << (int)pair.first << ", " << pair.second << "}");
-}
-
-template <typename T>
-std::ostream& operator << (std::ostream& os, const std::vector<T>& v) {
-    os << "[";
-    auto it = begin(v);
-    if (it != end(v)) {
-        os << *it;
-        for (it++; it != end(v); it++) {
-            os << ", " << *it;
-        }
-    }
-    return (os << "]");
-}
 
 void sort_freq_vec_desc(byte_freq_vector& freq_vec) {
     std::sort(begin(freq_vec), end(freq_vec), byte_freq_cmp<std::greater<byte_freq_pair::second_type>>());

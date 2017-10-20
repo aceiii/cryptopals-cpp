@@ -4,6 +4,7 @@
 #include <cassert>
 
 #include "byte_vector.hpp"
+#include "byte_util.hpp"
 #include "padding.hpp"
 
 using namespace std::string_literals;
@@ -37,7 +38,7 @@ void test2() {
 }
 
 int main() {
-    test1();
+    //test1();
     test2();
     return 0;
 }

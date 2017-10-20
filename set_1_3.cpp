@@ -7,6 +7,7 @@
 #include "hex.hpp"
 #include "xor.hpp"
 #include "base64.hpp"
+#include "byte_vector.hpp"
 #include "byte_freqency.hpp"
 
 using namespace std::string_literals;

@@ -1,11 +1,13 @@
 #ifndef __BASE64_HPP__
 #define __BASE64_HPP__
 
+#include <cassert>
 #include <iostream>
 #include <string>
 #include <vector>
 #include <sstream>
 
+#include "byte.hpp"
 #include "byte_vector.hpp"
 #include "hex.hpp"
 
