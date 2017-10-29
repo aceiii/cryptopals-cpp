@@ -5,7 +5,7 @@
 #include <cassert>
 
 class mt19937 {
-private:
+protected:
     // coefficients for mt19937-32
     static const uint32_t w = 32;
     static const uint32_t n = 624;
