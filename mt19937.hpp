@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <cassert>
+#include <limits>
 
 class mt19937 {
 protected:
@@ -59,6 +60,21 @@ public:
         return y;
     }
 
+public:
+    typedef uint32_t result_type;
+
+    static constexpr uint32_t min() {
+        return std::numeric_limits<uint32_t>::min();
+    }
+
+    static constexpr uint32_t max() {
+        return std::numeric_limits<uint32_t>::max();
+    }
+
+    uint32_t operator() () {
+        return extract_number();
+    }
+private:
     void twist() {
         for (int i = 0; i < n; i += 1) {
             uint32_t x = (_mt[i] & upper_mask) + (_mt[(i+1) % n] & lower_mask);
